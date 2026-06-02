@@ -1,0 +1,8 @@
+.gradle/
+build/
+*.hprof
+*.py
+*.sh
+.idea/
+*.iml
+out/

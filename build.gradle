@@ -1,0 +1,108 @@
+buildscript {
+    repositories {
+        mavenCentral()
+        maven { url = "https://maven.minecraftforge.net/" }
+        maven { url = "https://repo.spongepowered.org/repository/maven-public/" }
+        maven { url = "https://plugins.gradle.org/m2/" }
+    }
+    dependencies {
+        classpath 'net.minecraftforge.gradle:ForgeGradle:2.1-SNAPSHOT'
+        // Shadow 2.0.4 is the correct version for Gradle 4.x
+        classpath 'com.github.jengelman.gradle.plugins:shadow:2.0.4'
+    }
+}
+
+// We use the '.forge' plugin because ForgeGradle 2.1 removed the pure vanilla plugin.
+// IMPORTANT: This does NOT make your mod a Forge mod! It just uses Forge's 
+// infrastructure to download and deobfuscate the 1.8.9 JAR for compiling.
+apply plugin: 'net.minecraftforge.gradle.forge'
+apply plugin: 'com.github.johnrengelman.shadow'
+apply plugin: 'java'
+
+group = 'de.originalpvp'
+version = '1.1.4'
+
+java {
+    sourceCompatibility = JavaVersion.VERSION_1_8
+    targetCompatibility = JavaVersion.VERSION_1_8
+}
+
+minecraft {
+    // We must provide a full Forge version string to satisfy the plugin, 
+    // even though we are building a vanilla Jar-Mod.
+    version = "1.8.9-11.15.1.2318-1.8.9"
+    mappings = "stable_22"
+    makeObfSourceJar = false
+}
+
+repositories {
+    mavenCentral()
+}
+
+dependencies {
+    implementation 'org.ow2.asm:asm:9.6'
+    implementation 'org.ow2.asm:asm-commons:9.6'
+    implementation 'org.ow2.asm:asm-tree:9.6'
+}
+
+// ── Build-time patching (For PrismLauncher) ──────────────────────────
+task patchVanillaClasses(type: JavaExec) {
+    dependsOn compileJava
+    
+    // Explicitly add the compiled classes directory and all dependencies
+    classpath = files(sourceSets.main.output.classesDirs) + sourceSets.main.runtimeClasspath
+    main = 'de.originalpvp.OriginalPvP'
+
+    // Grab the ACTUAL obfuscated vanilla JAR, not the ForgeGradle deobfuscated one!
+    def vanillaJar = file(System.getProperty("user.home") + "/.gradle/caches/minecraft/net/minecraft/minecraft/1.8.9/minecraft-1.8.9.jar")
+    def outputDir  = file("$buildDir/patched-vanilla")
+
+    doFirst {
+        if (vanillaJar.exists()) {
+            args '--build-patch', vanillaJar.absolutePath, outputDir.absolutePath
+        } else {
+            throw new GradleException("Vanilla Minecraft JAR not found at " + vanillaJar.absolutePath + "! Run setupDecompWorkspace first.")
+        }
+    }
+
+    outputs.dir outputDir
+}
+
+// ── 1. Shadow ASM Library Only ───────────────────────────────────────
+task asmShadowJar(type: com.github.jengelman.gradle.plugins.shadow.tasks.ShadowJar) {
+    classifier = 'asm'
+    // Only bundle dependencies, NOT the mod source code
+    configurations = [project.configurations.compile]
+    relocate 'org.objectweb.asm', 'de.originalpvp.lib.asm'
+}
+
+// ── 2. Final JAR Assembly ────────────────────────────────────────────
+task finalJar(type: Jar) {
+    // Wait for patching, standard reobfuscation, and ASM shadowing
+    dependsOn patchVanillaClasses, reobfJar, asmShadowJar
+    
+    baseName = 'OriginalPvP'
+    classifier = ''
+
+    manifest {
+        attributes 'Main-Class': 'de.originalpvp.OriginalPvP'
+    }
+
+    // 1. Include the properly REOBFUSCATED mod code!
+    from zipTree(jar.archivePath)
+
+    // 2. Include the pre-patched obfuscated vanilla classes (for Prism)
+    from "$buildDir/patched-vanilla"
+
+    // 3. Include the shadowed ASM library
+    from zipTree(asmShadowJar.archivePath)
+}
+
+// Make sure `gradle build` produces the final Jar
+build.dependsOn finalJar
+
+reobf {
+    jar {
+        mappingType = 'NOTCH'
+    }
+}
