@@ -15,7 +15,7 @@ Original PvP is a 1.8.9 client-side mod that restores and enhances the vanilla P
 
 ## Installation
 Original PvP supports installation via its standalone installer.
-Simply run: `java -jar OriginalPvP-1.1.4.jar` to open the installer GUI, or add it to your instances manually.
+Simply run: `java -jar OriginalPvP-2.0.jar` to open the installer GUI, or add it to your instances manually.
 
 ## Building from Source
 **Requirements:** You must use **Java 8 (JDK 1.8)** to build this project, as newer Java versions are not compatible with the old ForgeGradle 2.1 toolchain.

@@ -1,15 +1,27 @@
 package de.originalpvp.hud;
 
+import de.originalpvp.OriginalPvP;
+import de.originalpvp.features.ToggleSprint;
+import de.originalpvp.settings.ModSettings;
 import net.minecraft.client.Minecraft;
-import net.minecraft.client.gui.Gui;
 import net.minecraft.client.gui.FontRenderer;
 import net.minecraft.client.gui.ScaledResolution;
 import net.minecraft.client.renderer.GlStateManager;
 
-import de.originalpvp.OriginalPvP;
-import de.originalpvp.settings.ModSettings;
-
+/**
+ * Renders the in-game Original PvP HUD overlay (Toggle Sprint status indicator).
+ */
 public class HudRenderer {
+
+    private static final float HUD_SCALE = 0.8f;
+    private static final int HUD_MARGIN = 4;
+    private static final int FONT_HEIGHT = 8;
+
+    private static final int COLOR_ENABLED = 0x00FF00;
+    private static final int COLOR_DISABLED = 0xFF5555;
+
+    private static final String TEXT_SPRINT_ENABLED = "sprint enabled";
+    private static final String TEXT_SPRINT_DISABLED = "sprint disabled";
 
     private final ModSettings settings;
 
@@ -19,39 +31,39 @@ public class HudRenderer {
 
     public void render(float partialTicks) {
         Minecraft mc = Minecraft.getMinecraft();
-
-        if (mc.thePlayer == null || mc.currentScreen != null) {
+        if (mc == null || mc.thePlayer == null || mc.currentScreen != null) {
             return;
         }
 
-        // Only show sprint indicator when toggle sprint is enabled and player is sprinting
-        if (!this.settings.toggleSprintEnabled) {
+        if (!settings.toggleSprintEnabled) {
             return;
         }
 
         OriginalPvP mod = OriginalPvP.getInstance();
-        if (mod == null || mod.getToggleSprint() == null) {
+        if (mod == null) {
             return;
         }
-        // Always show the status if the feature is enabled
-        String text = mod.getToggleSprint().isToggled() ? "sprint enabled" : "sprint disabled";
-        int color = mod.getToggleSprint().isToggled() ? 0x00FF00 : 0xFF5555;
-        
+
+        ToggleSprint toggleSprint = mod.getToggleSprint();
+        if (toggleSprint == null) {
+            return;
+        }
+
+        boolean sprintToggled = toggleSprint.isToggled();
+        String text = sprintToggled ? TEXT_SPRINT_ENABLED : TEXT_SPRINT_DISABLED;
+        int color = sprintToggled ? COLOR_ENABLED : COLOR_DISABLED;
+
         ScaledResolution sr = new ScaledResolution(mc);
         FontRenderer fr = mc.fontRendererObj;
 
-        // Scale down to 0.8x size
         GlStateManager.pushMatrix();
-        GlStateManager.scale(0.8f, 0.8f, 0.8f);
+        GlStateManager.scale(HUD_SCALE, HUD_SCALE, HUD_SCALE);
 
         int textWidth = fr.getStringWidth(text);
-        
-        // Calculate position based on the 0.8 scale (inverse scale the coords)
-        int x = (int) ((sr.getScaledWidth() - (textWidth * 0.8f) - 4) / 0.8f);
-        int y = (int) ((sr.getScaledHeight() - (8 * 0.8f) - 4) / 0.8f);
+        float x = (sr.getScaledWidth() - (textWidth * HUD_SCALE) - HUD_MARGIN) / HUD_SCALE;
+        float y = (sr.getScaledHeight() - (FONT_HEIGHT * HUD_SCALE) - HUD_MARGIN) / HUD_SCALE;
 
-        // Draw text with shadow, no background
-        fr.drawStringWithShadow(text, (float) x, (float) y, color);
+        fr.drawStringWithShadow(text, x, y, color);
 
         GlStateManager.popMatrix();
     }

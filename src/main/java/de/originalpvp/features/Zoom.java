@@ -1,66 +1,140 @@
 package de.originalpvp.features;
 
-import org.lwjgl.input.Keyboard;
 import de.originalpvp.settings.ModSettings;
+import net.minecraft.client.Minecraft;
+import org.lwjgl.input.Keyboard;
+import org.lwjgl.input.Mouse;
 
 /**
- * Smooth zoom feature that interpolates FOV when the zoom key is held.
+ * Smooth zoom feature that interpolates FOV when the zoom key is held and supports
+ * mouse wheel adjustment while zooming.
  */
-public class Zoom {
+public class Zoom implements IFeature {
+
+    private static final float MIN_ZOOM_FOV = 10.0f;
+    private static final float MAX_ZOOM_FOV = 110.0f;
+    private static final float SCROLL_STEP = 5.0f;
 
     private final ModSettings settings;
+
     private boolean zooming = false;
-    private float currentZoomFov;
-    private long zoomStartTime = 0;
-    private float zoomFromFov;
-    private float dynamicTargetFov;
     private boolean wasZooming = false;
+    private boolean transitioningOut = false;
+
+    private float currentZoomFov = -1.0f;
+    private float transitionStartFov = -1.0f;
+    private float dynamicTargetFov;
+    private long transitionStartTime = 0L;
 
     public Zoom(ModSettings settings) {
         this.settings = settings;
-        this.currentZoomFov = settings.zoomFov;
+        this.dynamicTargetFov = settings.zoomFov;
     }
 
+    @Override
+    public String getName() {
+        return "Zoom";
+    }
+
+    @Override
+    public boolean isEnabled() {
+        return settings.zoomEnabled;
+    }
+
+    @Override
+    public void setEnabled(boolean enabled) {
+        settings.zoomEnabled = enabled;
+        if (!enabled) {
+            zooming = false;
+            wasZooming = false;
+            transitioningOut = false;
+            currentZoomFov = -1.0f;
+        }
+    }
+
+    @Override
+    public void onTick(Minecraft mc) {
+        updateState(mc);
+    }
+
+    /**
+     * Backward-compatible tick method.
+     */
     public void onTick() {
-        boolean keyDown = net.minecraft.client.Minecraft.getMinecraft().currentScreen == null && Keyboard.isKeyDown(settings.zoomKeyCode);
-        zooming = keyDown && settings.zoomEnabled;
+        updateState(Minecraft.getMinecraft());
+    }
+
+    private void updateState(Minecraft mc) {
+        boolean keyDown = mc.currentScreen == null
+                && settings.zoomKeyCode > 0
+                && Keyboard.isKeyDown(settings.zoomKeyCode);
+        zooming = settings.zoomEnabled && keyDown;
+
+        long now = System.currentTimeMillis();
 
         if (zooming && !wasZooming) {
-            zoomStartTime = System.currentTimeMillis();
-            zoomFromFov = currentZoomFov;
-            dynamicTargetFov = settings.zoomFov; // reset to default
+            transitionStartTime = now;
+            transitionStartFov = currentZoomFov; // -1 if not previously transitioning
+            dynamicTargetFov = settings.zoomFov;
+            transitioningOut = false;
+        } else if (!zooming && wasZooming) {
+            transitionStartTime = now;
+            transitionStartFov = currentZoomFov;
+            transitioningOut = true;
         }
-        
+
         if (zooming) {
-            int dWheel = org.lwjgl.input.Mouse.getDWheel();
+            int dWheel = Mouse.getDWheel();
             if (dWheel != 0) {
-                // negative scroll = zoom out (increase FOV)
-                // positive scroll = zoom in (decrease FOV)
-                dynamicTargetFov -= (dWheel > 0 ? 5.0f : -5.0f);
-                if (dynamicTargetFov < 10.0f) dynamicTargetFov = 10.0f;
-                if (dynamicTargetFov > 110.0f) dynamicTargetFov = 110.0f;
+                dynamicTargetFov -= (dWheel > 0 ? SCROLL_STEP : -SCROLL_STEP);
+                if (dynamicTargetFov < MIN_ZOOM_FOV) {
+                    dynamicTargetFov = MIN_ZOOM_FOV;
+                } else if (dynamicTargetFov > MAX_ZOOM_FOV) {
+                    dynamicTargetFov = MAX_ZOOM_FOV;
+                }
             }
         }
-        
+
         wasZooming = zooming;
     }
 
+    /**
+     * @return {@code true} while the zoom key is actively held
+     */
     public boolean isZooming() {
         return zooming;
     }
 
-    public float getZoomFov(float currentFov, float partialTicks) {
-        if (!zooming && currentZoomFov >= currentFov - 1.0f) {
-            return currentFov;
+    /**
+     * @return {@code true} if FOV should be modified (actively zooming or smoothly zooming out)
+     */
+    public boolean shouldModifyFov() {
+        return zooming || transitioningOut;
+    }
+
+    /**
+     * Computes the interpolated FOV for the current frame.
+     */
+    public float getZoomFov(float baseFov, float partialTicks) {
+        if (!zooming && !transitioningOut) {
+            currentZoomFov = -1.0f;
+            return baseFov;
         }
 
-        float elapsed = (float) (System.currentTimeMillis() - zoomStartTime);
-        float progress = Math.min(1.0f, elapsed / settings.zoomSpeed);
+        float startFov = transitionStartFov > 0.0f ? transitionStartFov : baseFov;
+        float duration = Math.max(1.0f, settings.zoomSpeed);
+        float elapsed = (float) (System.currentTimeMillis() - transitionStartTime);
+        float progress = Math.min(1.0f, Math.max(0.0f, elapsed / duration));
 
         if (zooming) {
-            currentZoomFov = currentFov + (dynamicTargetFov - currentFov) * progress;
+            currentZoomFov = startFov + (dynamicTargetFov - startFov) * progress;
         } else {
-            currentZoomFov = zoomFromFov + (currentFov - zoomFromFov) * progress;
+            currentZoomFov = startFov + (baseFov - startFov) * progress;
+            if (progress >= 1.0f || Math.abs(currentZoomFov - baseFov) < 0.5f) {
+                transitioningOut = false;
+                currentZoomFov = -1.0f;
+                return baseFov;
+            }
         }
 
         return currentZoomFov;

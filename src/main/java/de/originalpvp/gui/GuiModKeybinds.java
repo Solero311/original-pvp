@@ -1,97 +1,113 @@
 package de.originalpvp.gui;
 
-import net.minecraft.client.gui.GuiButton;
-import net.minecraft.client.gui.GuiScreen;
-
-import org.lwjgl.input.Keyboard;
-
 import de.originalpvp.OriginalPvP;
 import de.originalpvp.settings.ModSettings;
+import net.minecraft.client.gui.GuiButton;
+import net.minecraft.client.gui.GuiScreen;
+import net.minecraft.client.settings.KeyBinding;
+import org.lwjgl.input.Keyboard;
 
 import java.io.IOException;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.function.IntConsumer;
+import java.util.function.IntSupplier;
 
+/**
+ * In-game configuration screen for rebinding Original PvP hotkeys.
+ */
 public class GuiModKeybinds extends GuiScreen {
 
+    private static final int ID_DONE = 100;
+    private static final int START_Y = 60;
+    private static final int ROW_SPACING = 30;
+    private static final int KEY_BUTTON_WIDTH = 120;
+    private static final int BUTTON_HEIGHT = 20;
+
     private final GuiScreen parentScreen;
-    private int selectedKeybind = -1; // -1 = none, 0 = zoom, 1 = toggle sprint
+    private final List<KeybindEntry> keybindEntries = new ArrayList<KeybindEntry>();
+    private int selectedKeybindId = -1;
 
     public GuiModKeybinds(GuiScreen parentScreen) {
         this.parentScreen = parentScreen;
     }
 
-    private String getKeyName(int keyCode) {
-        String name = Keyboard.getKeyName(keyCode);
-        return name == null ? "KEY_" + keyCode : name;
-    }
-
     @Override
     public void initGui() {
         this.buttonList.clear();
+        this.keybindEntries.clear();
+        this.selectedKeybindId = -1;
 
-        ModSettings s = OriginalPvP.getInstance().getSettings();
+        final ModSettings s = OriginalPvP.getInstance().getSettings();
 
-        // Zoom key button
-        this.buttonList.add(new GuiButton(0, this.width / 2 - 40, 60, 120, 20, getKeyName(s.zoomKeyCode)));
+        registerKeybind(0, "Zoom Key:", () -> s.zoomKeyCode, code -> {
+            s.zoomKeyCode = code;
+            if (OriginalPvP.keyBindZoom != null) {
+                OriginalPvP.keyBindZoom.setKeyCode(code);
+            }
+        });
 
-        // Toggle sprint key button
-        this.buttonList.add(new GuiButton(1, this.width / 2 - 40, 90, 120, 20, getKeyName(s.toggleSprintKeyCode)));
+        registerKeybind(1, "Toggle Sprint Key:", () -> s.toggleSprintKeyCode, code -> {
+            s.toggleSprintKeyCode = code;
+            if (OriginalPvP.keyBindSprintMod != null) {
+                OriginalPvP.keyBindSprintMod.setKeyCode(code);
+            }
+        });
 
-        // Menu key button
-        this.buttonList.add(new GuiButton(2, this.width / 2 - 40, 120, 120, 20, getKeyName(s.menuKeyCode)));
+        registerKeybind(2, "Mod Menu Key:", () -> s.menuKeyCode, code -> {
+            s.menuKeyCode = code;
+            if (OriginalPvP.keyBindGui != null) {
+                OriginalPvP.keyBindGui.setKeyCode(code);
+            }
+        });
 
-        // Done button
-        this.buttonList.add(new GuiButton(3, this.width / 2 - 100, this.height - 28, 200, 20, "Done"));
+        int buttonX = this.width / 2 - 40;
+        for (int i = 0; i < keybindEntries.size(); i++) {
+            KeybindEntry entry = keybindEntries.get(i);
+            int y = START_Y + i * ROW_SPACING;
+            this.buttonList.add(new GuiButton(entry.id, buttonX, y, KEY_BUTTON_WIDTH, BUTTON_HEIGHT, formatKeyName(entry.getter.getAsInt())));
+        }
+
+        this.buttonList.add(new GuiButton(ID_DONE, this.width / 2 - 100, this.height - 28, 200, BUTTON_HEIGHT, "Done"));
+    }
+
+    private void registerKeybind(int id, String label, IntSupplier getter, IntConsumer setter) {
+        keybindEntries.add(new KeybindEntry(id, label, getter, setter));
     }
 
     @Override
     protected void actionPerformed(GuiButton button) throws IOException {
-        if (button.id == 0) {
-            this.selectedKeybind = 0;
-            button.displayString = "> " + getKeyName(OriginalPvP.getInstance().getSettings().zoomKeyCode) + " <";
-        } else if (button.id == 1) {
-            this.selectedKeybind = 1;
-            button.displayString = "> " + getKeyName(OriginalPvP.getInstance().getSettings().toggleSprintKeyCode) + " <";
-        } else if (button.id == 2) {
-            this.selectedKeybind = 2;
-            button.displayString = "> " + getKeyName(OriginalPvP.getInstance().getSettings().menuKeyCode) + " <";
-        } else if (button.id == 3) {
+        if (button.id == ID_DONE) {
             this.mc.displayGuiScreen(this.parentScreen);
+            return;
+        }
+
+        for (int i = 0; i < keybindEntries.size(); i++) {
+            if (keybindEntries.get(i).id == button.id) {
+                this.selectedKeybindId = button.id;
+                updateButtonTexts();
+                return;
+            }
         }
     }
 
     @Override
     protected void keyTyped(char typedChar, int keyCode) throws IOException {
-        if (this.selectedKeybind >= 0) {
-            ModSettings s = OriginalPvP.getInstance().getSettings();
-
-            // Escape cancels the keybind selection
-            if (keyCode == Keyboard.KEY_ESCAPE) {
-                this.selectedKeybind = -1;
-                updateButtonTexts();
-                return;
+        if (this.selectedKeybindId >= 0) {
+            if (keyCode != Keyboard.KEY_ESCAPE) {
+                for (int i = 0; i < keybindEntries.size(); i++) {
+                    KeybindEntry entry = keybindEntries.get(i);
+                    if (entry.id == this.selectedKeybindId) {
+                        entry.setter.accept(keyCode);
+                        break;
+                    }
+                }
+                KeyBinding.resetKeyBindingArrayAndHash();
+                OriginalPvP.getInstance().getSettingsManager().save();
+                this.mc.gameSettings.saveOptions();
             }
 
-            if (this.selectedKeybind == 0) {
-                s.zoomKeyCode = keyCode;
-                if (OriginalPvP.keyBindZoom != null) {
-                    OriginalPvP.keyBindZoom.setKeyCode(keyCode);
-                }
-            } else if (this.selectedKeybind == 1) {
-                s.toggleSprintKeyCode = keyCode;
-                if (OriginalPvP.keyBindSprintMod != null) {
-                    OriginalPvP.keyBindSprintMod.setKeyCode(keyCode);
-                }
-            } else if (this.selectedKeybind == 2) {
-                s.menuKeyCode = keyCode;
-                // Also update the vanilla keybind so it works
-                if (OriginalPvP.keyBindGui != null) {
-                    OriginalPvP.keyBindGui.setKeyCode(keyCode);
-                }
-            }
-
-            this.selectedKeybind = -1;
-            OriginalPvP.getInstance().getSettingsManager().save();
-            this.mc.gameSettings.saveOptions();
+            this.selectedKeybindId = -1;
             updateButtonTexts();
         } else {
             super.keyTyped(typedChar, keyCode);
@@ -99,28 +115,51 @@ public class GuiModKeybinds extends GuiScreen {
     }
 
     private void updateButtonTexts() {
-        ModSettings s = OriginalPvP.getInstance().getSettings();
-
-        for (GuiButton btn : this.buttonList) {
-            if (btn.id == 0) {
-                btn.displayString = this.selectedKeybind == 0 ? "> ? <" : getKeyName(s.zoomKeyCode);
-            }
-            if (btn.id == 1) {
-                btn.displayString = this.selectedKeybind == 1 ? "> ? <" : getKeyName(s.toggleSprintKeyCode);
-            }
-            if (btn.id == 2) {
-                btn.displayString = this.selectedKeybind == 2 ? "> ? <" : getKeyName(s.menuKeyCode);
+        for (int i = 0; i < this.buttonList.size(); i++) {
+            GuiButton btn = this.buttonList.get(i);
+            for (int j = 0; j < keybindEntries.size(); j++) {
+                KeybindEntry entry = keybindEntries.get(j);
+                if (btn.id == entry.id) {
+                    String keyName = formatKeyName(entry.getter.getAsInt());
+                    btn.displayString = (this.selectedKeybindId == entry.id)
+                            ? "> " + keyName + " <"
+                            : keyName;
+                    break;
+                }
             }
         }
+    }
+
+    private static String formatKeyName(int keyCode) {
+        String name = Keyboard.getKeyName(keyCode);
+        return name == null ? "KEY_" + keyCode : name;
     }
 
     @Override
     public void drawScreen(int mouseX, int mouseY, float partialTicks) {
         this.drawDefaultBackground();
         this.drawCenteredString(this.fontRendererObj, "Original PvP Keybinds", this.width / 2, 15, 0xFFFFFF);
-        this.drawString(this.fontRendererObj, "Zoom Key:", this.width / 2 - 140, 66, 0xFFFFFF);
-        this.drawString(this.fontRendererObj, "Toggle Sprint Key:", this.width / 2 - 140, 96, 0xFFFFFF);
-        this.drawString(this.fontRendererObj, "Mod Menu Key:", this.width / 2 - 140, 126, 0xFFFFFF);
+
+        int labelX = this.width / 2 - 140;
+        for (int i = 0; i < keybindEntries.size(); i++) {
+            int labelY = START_Y + i * ROW_SPACING + 6;
+            this.drawString(this.fontRendererObj, keybindEntries.get(i).label, labelX, labelY, 0xFFFFFF);
+        }
+
         super.drawScreen(mouseX, mouseY, partialTicks);
+    }
+
+    private static final class KeybindEntry {
+        final int id;
+        final String label;
+        final IntSupplier getter;
+        final IntConsumer setter;
+
+        KeybindEntry(int id, String label, IntSupplier getter, IntConsumer setter) {
+            this.id = id;
+            this.label = label;
+            this.getter = getter;
+            this.setter = setter;
+        }
     }
 }

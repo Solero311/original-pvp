@@ -1,22 +1,40 @@
 package de.originalpvp.installer;
 
-import javax.swing.*;
+import de.originalpvp.util.ModConstants;
+import de.originalpvp.util.ModLogger;
+
+import javax.swing.JButton;
+import javax.swing.JFileChooser;
+import javax.swing.JFrame;
+import javax.swing.JLabel;
+import javax.swing.JOptionPane;
+import javax.swing.JPanel;
+import javax.swing.JProgressBar;
+import javax.swing.JTextField;
+import javax.swing.SwingUtilities;
+import javax.swing.UIManager;
 import javax.swing.border.EmptyBorder;
-import java.awt.*;
+import java.awt.Color;
+import java.awt.Dimension;
+import java.awt.FlowLayout;
+import java.awt.Font;
+import java.awt.GridBagConstraints;
+import java.awt.GridBagLayout;
+import java.awt.Insets;
 import java.io.File;
 
 /**
  * Swing-based installer GUI for the Original PvP mod.
  *
- * <p>Launched when the user runs {@code java -jar OriginalPvP-1.1.4.jar}.
- * It delegates the actual heavy lifting to {@link InstallerLogic}.</p>
+ * <p>Launched when the user runs {@code java -jar OriginalPvP-2.0.jar}.
+ * Delegates installation steps to {@link InstallerLogic}.</p>
  */
 public class GuiInstaller extends JFrame {
 
     private static final long serialVersionUID = 1L;
-    private static final String TITLE = "Original PvP 1.1.4 Installer";
-    private static final int WIDTH = 500;
-    private static final int HEIGHT = 300;
+    private static final String TITLE = ModConstants.FULL_DISPLAY_NAME + " Installer";
+    private static final int WINDOW_WIDTH = 500;
+    private static final int WINDOW_HEIGHT = 300;
 
     private JTextField pathField;
     private JButton installButton;
@@ -24,8 +42,6 @@ public class GuiInstaller extends JFrame {
     private JButton browseButton;
     private JProgressBar progressBar;
     private JLabel statusLabel;
-
-    // ── public entry point ──────────────────────────────────────────────
 
     public static void launch() {
         SwingUtilities.invokeLater(() -> {
@@ -37,18 +53,14 @@ public class GuiInstaller extends JFrame {
         });
     }
 
-    // ── constructor ─────────────────────────────────────────────────────
-
     public GuiInstaller() {
         setTitle(TITLE);
-        setSize(WIDTH, HEIGHT);
+        setSize(WINDOW_WIDTH, WINDOW_HEIGHT);
         setDefaultCloseOperation(EXIT_ON_CLOSE);
         setLocationRelativeTo(null);
         setResizable(false);
         initComponents();
     }
-
-    // ── UI setup ────────────────────────────────────────────────────────
 
     private void initComponents() {
         JPanel root = new JPanel(new GridBagLayout());
@@ -56,7 +68,6 @@ public class GuiInstaller extends JFrame {
         GridBagConstraints gbc = new GridBagConstraints();
         gbc.insets = new Insets(6, 4, 6, 4);
 
-        // ── Title ───────────────────────────────────────────────────────
         JLabel title = new JLabel("Install Original PvP for Minecraft 1.8.9");
         title.setFont(title.getFont().deriveFont(Font.BOLD, 16f));
         gbc.gridx = 0;
@@ -65,20 +76,17 @@ public class GuiInstaller extends JFrame {
         gbc.anchor = GridBagConstraints.CENTER;
         root.add(title, gbc);
 
-        // ── Subtitle ────────────────────────────────────────────────────
         JLabel subtitle = new JLabel("Zoom \u2022 Toggle Sprint \u2022 Fog Control \u2022 Sky Toggle \u2022 FOV Effects");
         subtitle.setForeground(Color.GRAY);
         gbc.gridy = 1;
         root.add(subtitle, gbc);
 
-        // ── Path label ──────────────────────────────────────────────────
         JLabel pathLabel = new JLabel("Minecraft directory:");
         gbc.gridy = 2;
         gbc.gridwidth = 3;
         gbc.anchor = GridBagConstraints.WEST;
         root.add(pathLabel, gbc);
 
-        // ── Path field ──────────────────────────────────────────────────
         pathField = new JTextField(getDefaultMinecraftDir().getAbsolutePath());
         gbc.gridy = 3;
         gbc.gridwidth = 2;
@@ -86,7 +94,6 @@ public class GuiInstaller extends JFrame {
         gbc.weightx = 1.0;
         root.add(pathField, gbc);
 
-        // ── Browse button ───────────────────────────────────────────────
         browseButton = new JButton("Browse...");
         gbc.gridx = 2;
         gbc.gridwidth = 1;
@@ -94,7 +101,6 @@ public class GuiInstaller extends JFrame {
         gbc.weightx = 0;
         root.add(browseButton, gbc);
 
-        // ── Progress bar ────────────────────────────────────────────────
         progressBar = new JProgressBar(0, 100);
         progressBar.setStringPainted(true);
         progressBar.setString("");
@@ -105,13 +111,11 @@ public class GuiInstaller extends JFrame {
         gbc.fill = GridBagConstraints.HORIZONTAL;
         root.add(progressBar, gbc);
 
-        // ── Status label ────────────────────────────────────────────────
         statusLabel = new JLabel(" ");
         statusLabel.setFont(statusLabel.getFont().deriveFont(Font.ITALIC));
         gbc.gridy = 5;
         root.add(statusLabel, gbc);
 
-        // ── Button row ──────────────────────────────────────────────────
         JPanel buttonPanel = new JPanel(new FlowLayout(FlowLayout.CENTER, 12, 0));
         installButton = new JButton("Install");
         cancelButton = new JButton("Cancel");
@@ -126,13 +130,10 @@ public class GuiInstaller extends JFrame {
 
         setContentPane(root);
 
-        // ── Listeners ───────────────────────────────────────────────────
         browseButton.addActionListener(e -> onBrowse());
         installButton.addActionListener(e -> onInstall());
         cancelButton.addActionListener(e -> System.exit(0));
     }
-
-    // ── event handlers ──────────────────────────────────────────────────
 
     private void onBrowse() {
         JFileChooser chooser = new JFileChooser(pathField.getText());
@@ -152,7 +153,6 @@ public class GuiInstaller extends JFrame {
             return;
         }
 
-        // Check that 1.8.9 exists
         File vanillaJar = new File(mcDir, "versions/1.8.9/1.8.9.jar");
         if (!vanillaJar.exists()) {
             JOptionPane.showMessageDialog(this,
@@ -179,7 +179,7 @@ public class GuiInstaller extends JFrame {
                 SwingUtilities.invokeLater(() ->
                         JOptionPane.showMessageDialog(this,
                                 "Original PvP has been installed successfully!\n\n" +
-                                "Select the \"1.8.9-OriginalPvP\" profile in your launcher\n" +
+                                "Select the \"" + ModConstants.INSTALLER_VERSION_ID + "\" profile in your launcher\n" +
                                 "and click Play.",
                                 "Installation Successful",
                                 JOptionPane.INFORMATION_MESSAGE)
@@ -187,7 +187,7 @@ public class GuiInstaller extends JFrame {
                 System.exit(0);
 
             } catch (Exception ex) {
-                ex.printStackTrace();
+                ModLogger.error("Installation failed", ex);
                 SwingUtilities.invokeLater(() -> {
                     JOptionPane.showMessageDialog(this,
                             "Installation failed:\n" + ex.getMessage(),
@@ -207,8 +207,6 @@ public class GuiInstaller extends JFrame {
         pathField.setEnabled(enabled);
     }
 
-    // ── .minecraft detection ────────────────────────────────────────────
-
     private static File getDefaultMinecraftDir() {
         String os = System.getProperty("os.name", "").toLowerCase();
         if (os.contains("win")) {
@@ -220,7 +218,6 @@ public class GuiInstaller extends JFrame {
             return new File(System.getProperty("user.home"),
                     "Library/Application Support/minecraft");
         }
-        // Linux / fallback
         return new File(System.getProperty("user.home"), ".minecraft");
     }
 }

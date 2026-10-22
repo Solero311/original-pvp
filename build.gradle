@@ -13,14 +13,14 @@ buildscript {
 }
 
 // We use the '.forge' plugin because ForgeGradle 2.1 removed the pure vanilla plugin.
-// IMPORTANT: This does NOT make your mod a Forge mod! It just uses Forge's 
+// IMPORTANT: This does NOT make your mod a Forge mod! It just uses Forge's
 // infrastructure to download and deobfuscate the 1.8.9 JAR for compiling.
 apply plugin: 'net.minecraftforge.gradle.forge'
 apply plugin: 'com.github.johnrengelman.shadow'
 apply plugin: 'java'
 
 group = 'de.originalpvp'
-version = '1.1.4'
+version = '2.0'
 
 java {
     sourceCompatibility = JavaVersion.VERSION_1_8
@@ -28,7 +28,7 @@ java {
 }
 
 minecraft {
-    // We must provide a full Forge version string to satisfy the plugin, 
+    // We must provide a full Forge version string to satisfy the plugin,
     // even though we are building a vanilla Jar-Mod.
     version = "1.8.9-11.15.1.2318-1.8.9"
     mappings = "stable_22"
@@ -45,24 +45,37 @@ dependencies {
     implementation 'org.ow2.asm:asm-tree:9.6'
 }
 
-// ── Build-time patching (For PrismLauncher) ──────────────────────────
+// Separate classifier for the intermediate mod-only JAR so finalJar does not overwrite its own input
+jar {
+    baseName = 'OriginalPvP'
+    classifier = 'raw'
+}
+
+// ── Build-time patching (For PrismLauncher & CI) ─────────────────────
 task patchVanillaClasses(type: JavaExec) {
     dependsOn compileJava
-    
+
     // Explicitly add the compiled classes directory and all dependencies
     classpath = files(sourceSets.main.output.classesDirs) + sourceSets.main.runtimeClasspath
     main = 'de.originalpvp.OriginalPvP'
 
-    // Grab the ACTUAL obfuscated vanilla JAR, not the ForgeGradle deobfuscated one!
-    def vanillaJar = file(System.getProperty("user.home") + "/.gradle/caches/minecraft/net/minecraft/minecraft/1.8.9/minecraft-1.8.9.jar")
-    def outputDir  = file("$buildDir/patched-vanilla")
+    def gradleVanillaJar = file(System.getProperty("user.home") + "/.gradle/caches/minecraft/net/minecraft/minecraft/1.8.9/minecraft-1.8.9.jar")
+    def prismVanillaJar  = file((System.getenv("APPDATA") ?: System.getProperty("user.home")) + "/PrismLauncher/libraries/com/mojang/minecraft/1.8.9/minecraft-1.8.9-client.jar")
+    def mcVanillaJar     = file((System.getenv("APPDATA") ?: System.getProperty("user.home")) + "/.minecraft/versions/1.8.9/1.8.9.jar")
+    def cachedVanillaJar = file("$buildDir/vanilla-cache/minecraft-1.8.9.jar")
+    def outputDir        = file("$buildDir/patched-vanilla")
 
     doFirst {
-        if (vanillaJar.exists()) {
-            args '--build-patch', vanillaJar.absolutePath, outputDir.absolutePath
-        } else {
-            throw new GradleException("Vanilla Minecraft JAR not found at " + vanillaJar.absolutePath + "! Run setupDecompWorkspace first.")
+        def targetJar = gradleVanillaJar.exists() ? gradleVanillaJar : (prismVanillaJar.exists() ? prismVanillaJar : (mcVanillaJar.exists() ? mcVanillaJar : cachedVanillaJar))
+        if (!targetJar.exists()) {
+            logger.lifecycle("[OriginalPvP] Downloading official Minecraft 1.8.9 client JAR for build-time patching...")
+            cachedVanillaJar.parentFile.mkdirs()
+            new URL("https://piston-data.mojang.com/v1/objects/3870888a6c3d349d3771a3e9d16c9bf5e076b908/client.jar").withInputStream { i ->
+                cachedVanillaJar.withOutputStream { o -> o << i }
+            }
+            targetJar = cachedVanillaJar
         }
+        args '--build-patch', targetJar.absolutePath, outputDir.absolutePath
     }
 
     outputs.dir outputDir
@@ -70,6 +83,7 @@ task patchVanillaClasses(type: JavaExec) {
 
 // ── 1. Shadow ASM Library Only ───────────────────────────────────────
 task asmShadowJar(type: com.github.jengelman.gradle.plugins.shadow.tasks.ShadowJar) {
+    baseName = 'OriginalPvP'
     classifier = 'asm'
     // Only bundle dependencies, NOT the mod source code
     configurations = [project.configurations.compile]
@@ -80,7 +94,7 @@ task asmShadowJar(type: com.github.jengelman.gradle.plugins.shadow.tasks.ShadowJ
 task finalJar(type: Jar) {
     // Wait for patching, standard reobfuscation, and ASM shadowing
     dependsOn patchVanillaClasses, reobfJar, asmShadowJar
-    
+
     baseName = 'OriginalPvP'
     classifier = ''
 

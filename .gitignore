@@ -1,8 +1,33 @@
+# Gradle & Build Outputs
 .gradle/
 build/
-*.hprof
-*.py
-*.sh
+out/
+
+# ForgeGradle / Minecraft Runtime
+run/
+logs/
+crash-reports/
+*.backup
+*.bak
+*.tmp
+
+# IDEs & Editors
 .idea/
 *.iml
-out/
+*.ipr
+*.iws
+.vscode/
+.settings/
+.classpath
+.project
+
+# Profiling, Scripts & Logs
+*.hprof
+*.log
+*.py
+*.sh
+
+# OS Metadata
+.DS_Store
+Thumbs.db
+Desktop.ini

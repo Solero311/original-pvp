@@ -1,38 +1,70 @@
 package de.originalpvp.settings;
 
 /**
- * Simple POJO holding all mod settings with sensible defaults.
+ * Configuration model holding all user-adjustable Original PvP settings and their defaults.
  */
 public class ModSettings {
 
-    // Zoom
-    public boolean zoomEnabled = true;
-    public int zoomKeyCode = 47;       // Keyboard.KEY_V
-    public float zoomFov = 25.0f;
-    public float zoomSpeed = 200.0f;   // milliseconds for zoom interpolation
+    // ── Default Constants ────────────────────────────────────────────────
+    public static final boolean DEFAULT_ZOOM_ENABLED = true;
+    public static final int DEFAULT_ZOOM_KEY_CODE = 47;          // Keyboard.KEY_V
+    public static final float DEFAULT_ZOOM_FOV = 25.0f;
+    public static final float DEFAULT_ZOOM_SPEED = 200.0f;       // ms
 
-    // Toggle Sprint
-    public boolean toggleSprintEnabled = true;
-    public int toggleSprintKeyCode = 19; // Keyboard.KEY_R
+    public static final boolean DEFAULT_TOGGLE_SPRINT_ENABLED = true;
+    public static final int DEFAULT_TOGGLE_SPRINT_KEY_CODE = 19; // Keyboard.KEY_R
 
-    // Fog Control
-    public boolean disableAllFog = false;
-    public boolean disableTerrainFog = false;
-    public boolean disableVoidFog = false;
-    public boolean disableWaterFog = false;
+    public static final boolean DEFAULT_DISABLE_ALL_FOG = false;
+    public static final boolean DEFAULT_DISABLE_TERRAIN_FOG = false;
+    public static final boolean DEFAULT_DISABLE_VOID_FOG = false;
+    public static final boolean DEFAULT_DISABLE_WATER_FOG = false;
 
-    // Sky
-    public boolean renderSky = true;
+    public static final boolean DEFAULT_RENDER_SKY = true;
+    public static final boolean DEFAULT_VIEW_BOBBING_ENABLED = true;
+    public static final boolean DEFAULT_FOV_EFFECTS_ENABLED = true;
+    public static final boolean DEFAULT_FULLBRIGHT_ENABLED = false;
 
-    // ── view bobbing ─────────────────────────────────────────────────────
-    public boolean viewBobbingEnabled = true;
+    public static final int DEFAULT_MENU_KEY_CODE = 54;          // Keyboard.KEY_RSHIFT
 
-    // ── fov effects ──────────────────────────────────────────────────────
-    public boolean fovEffectsEnabled = true;
+    // ── Zoom Settings ────────────────────────────────────────────────────
+    public boolean zoomEnabled = DEFAULT_ZOOM_ENABLED;
+    public int zoomKeyCode = DEFAULT_ZOOM_KEY_CODE;
+    public float zoomFov = DEFAULT_ZOOM_FOV;
+    public float zoomSpeed = DEFAULT_ZOOM_SPEED;
 
-    // ── keybinds ─────────────────────────────────────────────────────────
-    public int menuKeyCode = org.lwjgl.input.Keyboard.KEY_RSHIFT;
+    // ── Toggle Sprint Settings ───────────────────────────────────────────
+    public boolean toggleSprintEnabled = DEFAULT_TOGGLE_SPRINT_ENABLED;
+    public int toggleSprintKeyCode = DEFAULT_TOGGLE_SPRINT_KEY_CODE;
 
-    // ── fullbright ───────────────────────────────────────────────────────
-    public boolean fullbrightEnabled = false;
+    // ── Fog Control Settings ─────────────────────────────────────────────
+    public boolean disableAllFog = DEFAULT_DISABLE_ALL_FOG;
+    public boolean disableTerrainFog = DEFAULT_DISABLE_TERRAIN_FOG;
+    public boolean disableVoidFog = DEFAULT_DISABLE_VOID_FOG;
+    public boolean disableWaterFog = DEFAULT_DISABLE_WATER_FOG;
+
+    // ── Visual & World Settings ──────────────────────────────────────────
+    public boolean renderSky = DEFAULT_RENDER_SKY;
+    public boolean viewBobbingEnabled = DEFAULT_VIEW_BOBBING_ENABLED;
+    public boolean fovEffectsEnabled = DEFAULT_FOV_EFFECTS_ENABLED;
+    public boolean fullbrightEnabled = DEFAULT_FULLBRIGHT_ENABLED;
+
+    // ── Keybind Settings ─────────────────────────────────────────────────
+    public int menuKeyCode = DEFAULT_MENU_KEY_CODE;
+
+    /**
+     * Validates and clamps numeric settings to safe ranges.
+     */
+    public void validate() {
+        if (zoomFov < 5.0f) {
+            zoomFov = 5.0f;
+        } else if (zoomFov > 110.0f) {
+            zoomFov = 110.0f;
+        }
+
+        if (zoomSpeed < 1.0f) {
+            zoomSpeed = 1.0f;
+        } else if (zoomSpeed > 2000.0f) {
+            zoomSpeed = 2000.0f;
+        }
+    }
 }
