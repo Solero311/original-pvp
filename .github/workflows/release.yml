@@ -33,13 +33,13 @@ jobs:
       - name: Build Mod with Gradle
         run: ./gradlew clean build
 
+      - name: Remove Intermediate JARs
+        run: rm -f build/libs/*-raw.jar build/libs/*-asm.jar
+
       - name: Upload JAR to Release
         if: github.event_name == 'release' || startsWith(github.ref, 'refs/tags/')
         uses: softprops/action-gh-release@v2
         with:
-          files: |
-            build/libs/OriginalPvP-*.jar
-            !build/libs/*-raw.jar
-            !build/libs/*-asm.jar
+          files: build/libs/OriginalPvP-*.jar
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

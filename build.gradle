@@ -45,10 +45,11 @@ dependencies {
     implementation 'org.ow2.asm:asm-tree:9.6'
 }
 
-// Separate classifier for the intermediate mod-only JAR so finalJar does not overwrite its own input
+// Separate classifier & intermediate directory so finalJar is the only artifact in build/libs
 jar {
     baseName = 'OriginalPvP'
     classifier = 'raw'
+    destinationDir = file("$buildDir/intermediates")
 }
 
 // ── Build-time patching (For PrismLauncher & CI) ─────────────────────
@@ -85,6 +86,7 @@ task patchVanillaClasses(type: JavaExec) {
 task asmShadowJar(type: com.github.jengelman.gradle.plugins.shadow.tasks.ShadowJar) {
     baseName = 'OriginalPvP'
     classifier = 'asm'
+    destinationDir = file("$buildDir/intermediates")
     // Only bundle dependencies, NOT the mod source code
     configurations = [project.configurations.compile]
     relocate 'org.objectweb.asm', 'de.originalpvp.lib.asm'
@@ -97,6 +99,7 @@ task finalJar(type: Jar) {
 
     baseName = 'OriginalPvP'
     classifier = ''
+    destinationDir = file("$buildDir/libs")
 
     manifest {
         attributes 'Main-Class': 'de.originalpvp.OriginalPvP'
@@ -110,6 +113,11 @@ task finalJar(type: Jar) {
 
     // 3. Include the shadowed ASM library
     from zipTree(asmShadowJar.archivePath)
+
+    doLast {
+        delete fileTree(dir: "$buildDir/libs", include: "*-raw.jar")
+        delete fileTree(dir: "$buildDir/libs", include: "*-asm.jar")
+    }
 }
 
 // Make sure `gradle build` produces the final Jar
